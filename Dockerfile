@@ -1,4 +1,4 @@
-FROM rust:latest AS build
+FROM rust:latest AS builder
 
 RUN apt-get update
 
@@ -16,7 +16,7 @@ RUN cargo build --release
 
 RUN mkdir -p /build-out/
 
-FROM alpine:latest
+FROM alpine:latest AS app
 
 COPY --from=build /usr/src/profile_counter/target/x86_64-unknown-linux-musl/release/profile_counter /usr/local/bin/profile_counter
 
