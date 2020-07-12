@@ -12,8 +12,6 @@ COPY . .
 
 RUN RUSTFLAGS=-Clinker=musl-gcc cargo build --release --target=x86_64-unknown-linux-musl
 
-RUN cargo build --release
-
 RUN mkdir -p /build-out/
 
 FROM alpine:latest AS app
