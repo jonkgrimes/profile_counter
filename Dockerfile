@@ -2,11 +2,13 @@ FROM rust:latest AS builder
 
 RUN apt-get update
 
+RUN apt-get upgrade
+
 RUN apt-get install musl-tools -y
 
 RUN rustup target add x86_64-unknown-linux-musl
 
-WORKDIR /usr/src/profile_counter
+WORKDIR /app
 
 COPY . .
 
@@ -16,6 +18,9 @@ RUN mkdir -p /build-out/
 
 FROM alpine:latest AS app
 
-COPY --from=builder /usr/src/profile_counter/target/x86_64-unknown-linux-musl/release/profile_counter /usr/local/bin/profile_counter
+RUN mkdir -p /app/static
 
-CMD ["profile_counter"]
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/profile_counter /app/profile_counter
+COPY --from=builder /app/static/. /app/static/.
+
+CMD ["/app/profile_counter"]
