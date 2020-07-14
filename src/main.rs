@@ -49,7 +49,7 @@ async fn profile(req: HttpRequest, db_pool: web::Data<PgPool>) -> Result<fs::Nam
 
     RequestInfo::create(request, &db_pool).await.ok().expect("Unable to write RequestInfo to the database");
 
-    Ok(fs::NamedFile::open("static/profile.svg")?)
+    Ok(fs::NamedFile::open("./static/profile.svg")?)
 }
 
 async fn index() -> HttpResponse {
@@ -73,7 +73,12 @@ async fn main() -> io::Result<()> {
     let bind_addr = format!("0.0.0.0:{}", port);
     env_logger::init();
 
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set");
+    let database_url  = if let Ok(url) = env::var("DATABASE_URL") {
+        url
+    } else {
+        DATABASE_URL.to_string()
+    };
+    println!("{}", database_url);
     let db_pool = PgPool::new(&database_url).await.expect("Unable to create database pool");
     
     HttpServer::new(move || {
