@@ -3,13 +3,15 @@ extern crate actix_web;
 
 use std::{env, io};
 
-use actix_files as fs;
 use actix_web::{
     web, App, HttpResponse, HttpServer, HttpRequest, Result
 };
 use actix_web::middleware::Logger;
 use sqlx::{PgPool, Row};
 use sqlx::postgres::PgRow;
+use svg::Document;
+use svg::node::Text as TextContent;
+use svg::node::element::{Rectangle, Text, Group};
 
 struct RequestInfo {
     pub id: i32,
@@ -38,7 +40,46 @@ impl RequestInfo {
     }
 }
 
-async fn profile(req: HttpRequest, db_pool: web::Data<PgPool>) -> Result<fs::NamedFile> {
+fn profile_badge(count: i32) -> Document {
+    let leftRect = Rectangle::new()
+        .set("width", 50)
+        .set("height", 20)
+        .set("fill", "#555");
+
+    let rightRect = Rectangle::new()
+        .set("width", 70)
+        .set("height", 50)
+        .set("x", 50)
+        .set("fill", "#4c1");
+
+
+    let title_text = Text::new()
+        .set("x", 25)
+        .set("y", 14)
+        .add(TextContent::new("views"));
+
+    let count_text = Text::new()
+        .set("x", 85)
+        .set("y", 14)
+        .add(TextContent::new(format!("{}", count)));
+
+    let text_container = Group::new()
+        .set("fill", "#fff")
+        .set("text-anchor", "middle")
+        .set("font-family", "DejaVu Sans,Verdana,Geneva,sans-serif")
+        .set("font-size", 11)
+        .add(title_text)
+        .add(count_text);
+
+    return Document::new()
+        .set("height", 20)
+        .set("width", 120)
+        .add(leftRect)
+        .add(rightRect)
+        .add(text_container);
+}
+
+async fn profile(req: HttpRequest, db_pool: web::Data<PgPool>) -> HttpResponse {
     let user_agent = req.headers().get("User-Agent")
                                         .map_or("-", |header_value| header_value.to_str().unwrap());
     let request = RequestInfo {
@@ -47,9 +88,14 @@ async fn profile(req: HttpRequest, db_pool: web::Data<PgPool>) -> Result<fs::Nam
         user_agent: String::from(user_agent)
     };
 
-    RequestInfo::create(request, &db_pool).await.ok().expect("Unable to write RequestInfo to the database");
-
-    Ok(fs::NamedFile::open("./static/profile.svg")?)
+    match RequestInfo::create(request, &db_pool).await {
+        Ok(info) => {
+            HttpResponse::Ok()
+                .content_type("image/svg+xml")
+                .body(profile_badge(info.id).to_string())
+        }
+        Err(err) => HttpResponse::InternalServerError().body(err.to_string())
+    }
 }
 
 async fn index() -> HttpResponse {
