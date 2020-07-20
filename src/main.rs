@@ -91,6 +91,7 @@ async fn profile(req: HttpRequest, db_pool: web::Data<PgPool>) -> HttpResponse {
     match RequestInfo::create(request, &db_pool).await {
         Ok(info) => {
             HttpResponse::Ok()
+                .set_header("Cache-Control", "max-age=0, no-cache, no-store, must-revalidate")
                 .content_type("image/svg+xml")
                 .body(profile_badge(info.id).to_string())
         }
