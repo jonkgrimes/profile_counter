@@ -16,9 +16,6 @@ RUN mkdir -p /build-out/
 
 FROM alpine:latest AS app
 
-RUN mkdir -p /app/static
-
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/profile_counter /app/profile_counter
-COPY --from=builder /app/static/. /app/static/.
 
 CMD ["/app/profile_counter"]
