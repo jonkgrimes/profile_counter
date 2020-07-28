@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate actix_web;
 
 use std::{env, io};
@@ -9,6 +8,7 @@ use actix_web::{
 use actix_web::middleware::Logger;
 use sqlx::{PgPool, Row};
 use sqlx::postgres::PgRow;
+use chrono::{NaiveDateTime};
 use svg::Document;
 use svg::node::Text as TextContent;
 use svg::node::element::{Rectangle, Text, Group};
@@ -17,19 +17,27 @@ struct RequestInfo {
     pub id: i32,
     pub ip_address: String,
     pub user_agent: String,
+    pub created_at: Option<NaiveDateTime>,
+    pub updated_at: Option<NaiveDateTime>
 }
 
 impl RequestInfo {
     pub async fn create(request: RequestInfo, pool: &PgPool) -> Result<RequestInfo, sqlx::Error> {
         let mut tx = pool.begin().await?;
-        let request = sqlx::query("INSERT INTO requests (ip_address, user_agent) VALUES ($1, $2) RETURNING id, ip_address, user_agent")
+        let request = sqlx::query(
+               "INSERT INTO requests (ip_address, user_agent, created_at, updated_at)
+               VALUES ($1, $2, NOW(), NOW()) 
+               RETURNING id, ip_address, user_agent, created_at, updated_at"
+            )
             .bind(&request.ip_address)
             .bind(&request.user_agent)
             .map(|row: PgRow| {
                 RequestInfo {
                     id: row.get(0),
                     ip_address: row.get(1),
-                    user_agent: row.get(2)
+                    user_agent: row.get(2),
+                    created_at: Some(row.get(3)),
+                    updated_at: Some(row.get(4))
                 }
             })
             .fetch_one(&mut tx)
@@ -41,12 +49,12 @@ impl RequestInfo {
 }
 
 fn profile_badge(count: i32) -> Document {
-    let leftRect = Rectangle::new()
+    let left_rect = Rectangle::new()
         .set("width", 50)
         .set("height", 20)
         .set("fill", "#555");
 
-    let rightRect = Rectangle::new()
+    let right_rect = Rectangle::new()
         .set("width", 70)
         .set("height", 50)
         .set("x", 50)
@@ -74,8 +82,8 @@ fn profile_badge(count: i32) -> Document {
     return Document::new()
         .set("height", 20)
         .set("width", 120)
-        .add(leftRect)
-        .add(rightRect)
+        .add(left_rect)
+        .add(right_rect)
         .add(text_container);
 }
 
@@ -85,7 +93,9 @@ async fn profile(req: HttpRequest, db_pool: web::Data<PgPool>) -> HttpResponse {
     let request = RequestInfo {
         id: 0,
         ip_address: req.connection_info().remote().unwrap().to_string(),
-        user_agent: String::from(user_agent)
+        user_agent: String::from(user_agent),
+        created_at: None,
+        updated_at: None
     };
 
     match RequestInfo::create(request, &db_pool).await {
